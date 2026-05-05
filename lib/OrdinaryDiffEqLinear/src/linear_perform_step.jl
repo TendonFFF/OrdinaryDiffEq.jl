@@ -796,18 +796,19 @@ function perform_step!(
     )
     (; t, dt, uprev, f, p) = integrator
     alg = unwrap_alg(integrator, nothing)
-    A = convert(AbstractMatrix, f.f) # assume f to be an ODEFunction wrapped around a linear operator
+    L = f.f # assume f to be an ODEFunction wrapped around a linear operator
 
     if alg.krylov == :off
+        A = convert(AbstractMatrix, L)
         u = exponential!(dt * A, ExpMethodGeneric()) * integrator.u
     elseif alg.krylov == :simple
         u = expv(
-            dt, A, integrator.u; m = min(alg.m, size(A, 1)),
+            dt, L, integrator.u; m = min(alg.m, size(L, 1)),
             opnorm = integrator.opts.internalopnorm, iop = alg.iop
         )
     else
         u = expv_timestep(
-            dt, A, integrator.u; m = min(alg.m, size(A, 1)), iop = alg.iop,
+            dt, L, integrator.u; m = min(alg.m, size(L, 1)), iop = alg.iop,
             opnorm = integrator.opts.internalopnorm,
             tol = integrator.opts.reltol
         )
@@ -840,22 +841,23 @@ function perform_step!(integrator, cache::LinearExponentialCache, repeat_step = 
     (; tmp, KsCache, exp_cache) = cache
     alg = unwrap_alg(integrator, nothing)
     exp_method = ExpMethodGeneric()
-    A = convert(AbstractMatrix, f.f) # assume f to be an ODEFunction wrapped around a linear operator
+    L = f.f # assume f to be an ODEFunction wrapped around a linear operator
 
     if alg.krylov == :off
+        A = convert(AbstractMatrix, L)
         E = exponential!(dt * A, exp_method, exp_cache)
         mul!(tmp, E, u)
     elseif alg.krylov == :simple
         Ks, expv_cache = KsCache
         arnoldi!(
-            Ks, A, u; m = min(alg.m, size(A, 1)),
+            Ks, L, u; m = min(alg.m, size(L, 1)),
             opnorm = integrator.opts.internalopnorm, iop = alg.iop
         )
         expv!(tmp, dt, Ks; cache = expv_cache)
     else
         expv_timestep!(
-            tmp, dt, A, u; adaptive = true, caches = KsCache,
-            m = min(alg.m, size(A, 1)), iop = alg.iop,
+            tmp, dt, L, u; adaptive = true, caches = KsCache,
+            m = min(alg.m, size(L, 1)), iop = alg.iop,
             opnorm = integrator.opts.internalopnorm,
             tol = integrator.opts.reltol
         )
